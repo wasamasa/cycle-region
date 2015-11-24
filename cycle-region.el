@@ -170,8 +170,9 @@ history with an interactive preview."
   (let* ((last (ring-ref cycle-region-ring cycle-region-preview-index))
          (point (car last))
          (mark (cdr last)))
-    (goto-char point)
     (deactivate-mark)
+    (goto-char (min point mark))
+    (recenter)
     (setq cycle-region-preview-overlay (make-overlay point mark))
     (overlay-put cycle-region-preview-overlay 'face 'cycle-region-preview))
 
@@ -191,7 +192,8 @@ history with an interactive preview."
   (let* ((current (ring-ref cycle-region-ring cycle-region-preview-index))
          (point (car current))
          (mark (cdr current)))
-    (goto-char point)
+    (goto-char (min point mark))
+    (recenter)
     (move-overlay cycle-region-preview-overlay point mark)))
 
 (defun cycle-region-forward (arg)
@@ -219,7 +221,8 @@ history with an interactive preview."
              (car cycle-region-old-region-state))
     (goto-char (cadr cycle-region-old-region-state))
     (set-mark (nth 2 cycle-region-old-region-state))
-    (activate-mark)))
+    (activate-mark)
+    (recenter)))
 
 (provide 'cycle-region)
 ;;; cycle-region.el ends here
