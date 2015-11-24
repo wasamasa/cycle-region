@@ -156,22 +156,22 @@ history with an interactive preview."
   :type 'boolean
   :group 'cycle-region)
 
+(defvar cycle-region-old-region-state nil
+  "Holds the state of the region before preview.")
+
 (defun cycle-region-preview ()
   (interactive)
   (setq cycle-region-preview-index 0)
   (when (not cycle-region-ring)
     (user-error "Empty region ring"))
+  (setq cycle-region-old-region-state
+        (list (region-active-p) (point) (mark)))
   (run-hooks 'cycle-region-pre-preview-hook)
   (let* ((last (ring-ref cycle-region-ring cycle-region-preview-index))
          (point (car last))
          (mark (cdr last)))
-    ;; FIXME It's desirable to scroll where the overlay is, but that
-    ;; can only be done by moving point around which doesn't mix with
-    ;; preserving point to preserve the old position/region
-    ;; NOTE One possible solution would be unconditionally
-    ;; deactivating mark before, the other saving it and restoring it
-    ;; unless a new region got activated
     (goto-char point)
+    (deactivate-mark)
     (setq cycle-region-preview-overlay (make-overlay point mark))
     (overlay-put cycle-region-preview-overlay 'face 'cycle-region-preview))
 
@@ -191,7 +191,6 @@ history with an interactive preview."
   (let* ((current (ring-ref cycle-region-ring cycle-region-preview-index))
          (point (car current))
          (mark (cdr current)))
-    ;; NOTE See above
     (goto-char point)
     (move-overlay cycle-region-preview-overlay point mark)))
 
@@ -215,7 +214,12 @@ history with an interactive preview."
 (defun cycle-region-quit ()
   "Clean up the region preview overlay."
   (delete-overlay cycle-region-preview-overlay)
-  (setq cycle-region-preview-overlay nil))
+  (setq cycle-region-preview-overlay nil)
+  (when (and (not (eq this-command 'cycle-region-activate))
+             (car cycle-region-old-region-state))
+    (goto-char (cadr cycle-region-old-region-state))
+    (set-mark (nth 2 cycle-region-old-region-state))
+    (activate-mark)))
 
 (provide 'cycle-region)
 ;;; cycle-region.el ends here
