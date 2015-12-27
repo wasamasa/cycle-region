@@ -5,6 +5,7 @@
 ;; Author: Vasilij Schneidermann <v.schneidermann@gmail.com>
 ;; URL: https://github.com/wasamasa/cycle-region
 ;; Version: 0.0.1
+;; Package-Requires: ((dash "2.12.1"))
 ;; Keywords: convenience
 
 ;; This file is NOT part of GNU Emacs.
@@ -80,9 +81,7 @@ Non-nil if the region is active.")
 (defun cycle-region--same-region-p (index)
   "Non-nil if the region is the same as the one at INDEX."
   (when (> (ring-length cycle-region-ring) 0)
-    (let* ((region (ring-ref cycle-region-ring index))
-           (point (car region))
-           (mark (cdr region)))
+    (-let [[point mark] (ring-ref cycle-region-ring index)]
       (or (and (= point (point)) (= mark (mark)))
           ;; Point and mark can be swapped
           (and (= point (mark)) (= mark (point)))))))
@@ -96,7 +95,7 @@ Non-nil if the region is active.")
     (when (and (not (cycle-region--empty-region-p))
                (not (cycle-region--same-region-p 0))
                (not (cycle-region--same-region-p -1)))
-      (ring-insert cycle-region-ring (cons (point) (mark))))))
+      (ring-insert cycle-region-ring (vector (point) (mark))))))
 
 ;;;###autoload
 (define-minor-mode cycle-region-mode
@@ -164,12 +163,9 @@ history with an interactive preview."
   (setq cycle-region-preview-index 0)
   (when (not cycle-region-ring)
     (user-error "Empty region ring"))
-  (setq cycle-region-old-region-state
-        (list (region-active-p) (point) (mark)))
+  (setq cycle-region-old-region-state (vector (region-active-p) (point) (mark)))
   (run-hooks 'cycle-region-pre-preview-hook)
-  (let* ((last (ring-ref cycle-region-ring cycle-region-preview-index))
-         (point (car last))
-         (mark (cdr last)))
+  (-let [[point mark] (ring-ref cycle-region-ring cycle-region-preview-index)]
     (deactivate-mark)
     (goto-char (min point mark))
     (recenter)
@@ -189,9 +185,7 @@ history with an interactive preview."
   "Move to the previous region."
   (interactive "p")
   (setq cycle-region-preview-index (+ cycle-region-preview-index arg))
-  (let* ((current (ring-ref cycle-region-ring cycle-region-preview-index))
-         (point (car current))
-         (mark (cdr current)))
+  (-let [[point mark] (ring-ref cycle-region-ring cycle-region-preview-index)]
     (goto-char (min point mark))
     (recenter)
     (move-overlay cycle-region-preview-overlay point mark)))
@@ -206,9 +200,7 @@ history with an interactive preview."
   (interactive)
   (when (region-active-p)
     (deactivate-mark))
-  (let* ((current (ring-ref cycle-region-ring cycle-region-preview-index))
-         (point (car current))
-         (mark (cdr current)))
+  (-let [[point mark] (ring-ref cycle-region-ring cycle-region-preview-index)]
     (goto-char point)
     (set-mark mark)
     (activate-mark)))
@@ -217,12 +209,13 @@ history with an interactive preview."
   "Clean up the region preview overlay."
   (delete-overlay cycle-region-preview-overlay)
   (setq cycle-region-preview-overlay nil)
-  (when (and (not (eq this-command 'cycle-region-activate))
-             (car cycle-region-old-region-state))
-    (goto-char (cadr cycle-region-old-region-state))
-    (set-mark (nth 2 cycle-region-old-region-state))
-    (activate-mark)
-    (recenter)))
+  (when (not (eq this-command 'cycle-region-activate))
+    (-let [[activep point mark] cycle-region-old-region-state]
+      (when activep
+        (goto-char point)
+        (set-mark mark)
+        (activate-mark)
+        (recenter)))))
 
 (provide 'cycle-region)
 ;;; cycle-region.el ends here
